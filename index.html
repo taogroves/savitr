@@ -5,32 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Savitr: one that rises and sets</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="jquery-3.3.1.min.js"></script>
-    <script src="savitr.js"></script>
-
-    <script>
-      // urlParam copied from https://stackoverflow.com/questions/7731778/get-query-string-parameters-with-jquery
-      $.urlParam = function (name) {
-          var results = new RegExp('[\?&]' + name + '=([^&#]*)')
-                            .exec(window.location.search);
-
-          return (results !== null) ? results[1] || 0 : false;
-      }
-
-      $(function() {
-        var game_seed = $.urlParam('game_seed') || new Date().toISOString().slice(0, 10);
-
-        var this_game_board = $('#my_game');
-        var game = new Savitr(this_game_board, {columns: 3, rows: 4, shuffle: game_seed});
-        game.start();
-      });
-    </script>
   </head>
   <body>
     <div class="container">
       <div class="header">
         <h1>Savitr</h1>
-        <p>"In due place, Savitr hath <strong>set</strong> each creature." - Veda Hymn</p>
+        <p>"In due place, Savitr hath <strong>set</strong> each creature." — Veda Hymn</p>
       </div>
 
       <div class="mode-picker">
