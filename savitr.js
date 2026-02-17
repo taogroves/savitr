@@ -2,8 +2,8 @@ var Savitr = function(game_board, options) {
   // game_board: <div> where game is drawn
   // options: see settings below, including default values
   var settings = {
-    columns: 4,
-    rows:    3,
+    columns: 3,
+    rows:    4,
     shuffle: true,
     hint_threshold: 5 // number of incorrect guesses before hint button is shown, -1 for no hint button
   };

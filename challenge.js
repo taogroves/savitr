@@ -2,8 +2,8 @@ var Savitr = function(game_board, options) {
   // game_board: <div> where game is drawn
   // options: see settings below, including default values
   var settings = {
-    columns: 4,
-    rows:    3,
+    columns: 3,
+    rows:    4,
     shuffle: true,
     initial_time: 30, // time in seconds at the start of the game
     time_per_set: 15, // time in seconds gained per set found or skip used
@@ -83,7 +83,7 @@ var Savitr = function(game_board, options) {
     $('.controls .finish', game_board).off('click').click(finish_click);
 
     setTimeout(function run_seed_search() {
-      var base_seed = settings['shuffle'];
+      var base_seed = settings['shuffle'] + 'c';
       var seed = base_seed;
       var counter = 0;
       var winning_seed = base_seed;
