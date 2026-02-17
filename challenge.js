@@ -506,7 +506,7 @@ var Savitr = function(game_board, options) {
     var had_set = sets_in(board_cards).length >= 1;
     
     // if this skip was the required one, insert the lock emoji where the skip requirement began and update the game status
-    if (skip_require_at_set >= 0 && found_sets >= skip_require_at_set) {
+    if (skip_require_at_set >= 0 && found_sets >= skip_require_at_set && !skip_used) {
       game_score.splice(skip_require_at_set + 1, 0, String.fromCodePoint(0x1F512)); // lock emoji
       game_score.push(String.fromCodePoint(0x1F511)); // key emoji
       skip_used = true; // clears skip requirement until next game  
