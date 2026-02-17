@@ -5,7 +5,7 @@ var Savitr = function(game_board, options) {
     columns: 3,
     rows:    4,
     shuffle: true,
-    initial_time: 30, // time in seconds at the start of the game
+    initial_time: 45, // time in seconds at the start of the game
     time_per_set: 15, // time in seconds gained per set found or skip used
     time_per_incorrect_guess: 3, // time in seconds lost per incorrect guess
     num_skips: 3, // number of skips allowed
