@@ -5,12 +5,12 @@ var Savitr = function(game_board, options) {
     columns: 4,
     rows:    3,
     shuffle: true,
-    initial_time: 20, // time in seconds at the start of the game
+    initial_time: 30, // time in seconds at the start of the game
     time_per_set: 15, // time in seconds gained per set found or skip used
     time_per_incorrect_guess: 3, // time in seconds lost per incorrect guess
     num_skips: 3, // number of skips allowed
     max_sets: 12, // maximum number of sets to find
-    skip_require_threshold: 3, // -1 = random (0 to max_sets-1), 0 = never, 1 to max_sets = from that set index until skip is used
+    skip_require_threshold: -1, // -1 = random (0 to max_sets-1), 0 = never, 1 to max_sets = from that set index until skip is used
     // hint_threshold: 5 // number of incorrect guesses before hint button is shown, -1 for no hint button
   };
 
