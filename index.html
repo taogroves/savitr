@@ -41,13 +41,74 @@
         <p><strong>Goal:</strong> Find as many sets as possible! Click on three cards to select them. If they form a valid set, they'll be highlighted. If you can't find all the sets, click "Finish" to see what you missed.</p>
       </div>
 
-      <div class="game-container">
-        <div id="my_game"></div>
+      <div class="mode-picker">
+        <h2>Choose a game mode</h2>
+        <div class="mode-cards">
+          <a href="single.html" class="mode-card">
+            <span class="mode-icon">◆</span>
+            <h3>Single</h3>
+            <p>A simple, zen experience. Find all the sets on the board at your own pace. Use hints or finish when you're done.</p>
+          </a>
+          <a href="challenge.html" class="mode-card">
+            <span class="mode-icon">⏱</span>
+            <h3>Challenge</h3>
+            <p>Timed mode with limited time and skips. Find as many sets as you can before time runs out.</p>
+          </a>
+        </div>
       </div>
 
       <div class="footer">
         <p><a href="https://github.com/erikhatcher/savitr" target="_blank">View on GitHub</a></p>
       </div>
     </div>
+    <style>
+      .mode-picker { margin-bottom: 30px; }
+      .mode-picker h2 {
+        text-align: center;
+        color: #4a5568;
+        margin-bottom: 24px;
+        font-size: 1.5rem;
+      }
+      .mode-cards {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .mode-card {
+        display: block;
+        flex: 1;
+        min-width: 260px;
+        max-width: 380px;
+        padding: 28px 24px;
+        background: linear-gradient(145deg, #f7fafc 0%, #edf2f7 100%);
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      }
+      .mode-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(102, 126, 234, 0.2);
+        border-color: #667eea;
+      }
+      .mode-icon {
+        display: block;
+        font-size: 2rem;
+        margin-bottom: 12px;
+        color: #667eea;
+      }
+      .mode-card h3 {
+        color: #2d3748;
+        margin-bottom: 10px;
+        font-size: 1.4rem;
+      }
+      .mode-card p {
+        color: #718096;
+        line-height: 1.5;
+        font-size: 0.95rem;
+      }
+    </style>
   </body>
 </html>

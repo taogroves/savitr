@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Savitr — Challenge</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="instructions-toggle.js"></script>
+    <script src="jquery-3.3.1.min.js"></script>
+    <script src="challenge.js"></script>
+    <script>
+      $.urlParam = function (name) {
+        var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.search);
+        return (results !== null) ? results[1] || 0 : false;
+      }
+      $(function() {
+        var game_seed = $.urlParam('game_seed') || new Date().toISOString().slice(0, 10);
+        var this_game_board = $('#my_game');
+        var game = new Savitr(this_game_board, {columns: 4, rows: 3, shuffle: game_seed});
+        game.start();
+      });
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Savitr</h1>
+        <p><a href="index.html">← Home</a></p>
+      </div>
+
+      <div class="instructions-wrapper">
+        <div class="instructions-header">
+          <h3>How to Play Set (Challenge)</h3>
+          <button type="button" class="instructions-toggle" aria-expanded="true">Hide instructions</button>
+        </div>
+        <div class="instructions">
+          <p>A <span class="highlight">Set</span> consists of three cards where each feature is either the same on all three cards or different on all three cards.</p>
+          <p><strong>Challenge:</strong> Find sets before time runs out. Use skips when stuck. Find as many sets as you can!</p>
+        </div>
+      </div>
+
+      <div class="game-container game-container--full-width">
+        <div id="my_game"></div>
+      </div>
+
+      <div class="footer">
+        <p><a href="https://github.com/erikhatcher/savitr" target="_blank">View on GitHub</a></p>
+      </div>
+    </div>
+  </body>
+</html>

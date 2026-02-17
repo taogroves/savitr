@@ -5,7 +5,13 @@ var Savitr = function(game_board, options) {
     columns: 4,
     rows:    3,
     shuffle: true,
-    hint_threshold: 5 // number of incorrect guesses before hint button is shown, -1 for no hint button
+    initial_time: 20, // time in seconds at the start of the game
+    time_per_set: 15, // time in seconds gained per set found or skip used
+    time_per_incorrect_guess: 3, // time in seconds lost per incorrect guess
+    num_skips: 3, // number of skips allowed
+    max_sets: 12, // maximum number of sets to find
+    skip_require_threshold: 3, // -1 = random (0 to max_sets-1), 0 = never, 1 to max_sets = from that set index until skip is used
+    // hint_threshold: 5 // number of incorrect guesses before hint button is shown, -1 for no hint button
   };
 
   $.extend(settings,options);  // options override the default settings
@@ -17,6 +23,8 @@ var Savitr = function(game_board, options) {
   var shapes   = ['oval',  'squiggle', 'diamond'];
   var deck_size = numbers.length * colors.length * shadings.length * shapes.length;
 
+  var deck = new_deck(settings['shuffle']);
+
   var rows = settings['rows'];
   var columns = settings['columns']
 
@@ -25,11 +33,21 @@ var Savitr = function(game_board, options) {
   }
 
   // Game state
-  var deck = new_deck(settings['shuffle']);
   var selected = []; // each value is card id (index into `deck`)
-  var found_sets = []; // strings of three card numbers (of the deck) separated by dashes "1-5-7".
-  var incorrect_guesses = 0; // track incorrect guesses for hint system
-  var set_indices = {}; // map set_id to index for emoji coloring
+  var found_sets = 0; // count of sets found in this challenge
+  var incorrect_guesses = 0;
+  var set_indices = {};
+  // Challenge mode state
+  var game_started = false;
+  var time_remaining = 0;
+  var skips_remaining = settings['num_skips'];
+  var game_score = []; // emoji string for share: green=set, yellow=skip, red=miss, then trophy or clock
+  var game_ended_reason = null; // null | 'time' | 'max_sets'
+  var board_deck_indices = []; // length 12: deck index for each board position
+  var available_deck_indices = []; // deck indices not currently on board
+  var skip_require_at_set = -1; // -1 = never, 0 to max_sets-1 = require no-new-sets from this set index until skip used
+  var skip_used = false; // true after player uses a skip (clears skip requirement for this game)
+  var game_rng = null; // seeded RNG from initial deal, used for skip/set replacement so same seed => same game
 
   game_board.html(draw_board(rows,columns));
 
@@ -41,69 +59,112 @@ var Savitr = function(game_board, options) {
   var initial_sets = [];
   var game_status = "-";
 
-  function begin_click() {
-    $('.begin-screen', game_board).hide();
-    $('.game-area', game_board).show();
-    total_seconds = 0;
-    if (!timer_var) {
-      timer_var = setInterval(timer, 1000);
+  function start() {
+    selected = [];
+    found_sets = 0;
+    incorrect_guesses = 0;
+    set_indices = {};
+    initial_sets = [];
+    game_started = false;
+    game_ended_reason = null;
+    game_score = [];
+    skips_remaining = settings['num_skips'];
+    time_remaining = settings['initial_time'];
+
+    $('.go-screen', game_board).show();
+    $('.game-area', game_board).hide();
+    $('.go-screen .loading-message', game_board).show();
+    $('.go-screen .begin-button', game_board).hide();
+    $('.game_status', game_board).html('');
+    $('.controls .timer', game_board).html(format_time(time_remaining));
+    $('.controls .skips-count', game_board).html(skips_remaining);
+    $('.found_sets', game_board).empty().append($('<h4>🎉 Sets Found:</h4>'));
+
+    $('.controls .finish', game_board).off('click').click(finish_click);
+
+    setTimeout(function run_seed_search() {
+      var base_seed = settings['shuffle'];
+      var seed = base_seed;
+      var counter = 0;
+      var winning_seed = base_seed;
+
+      while (true) {
+        seed = counter === 0 ? base_seed : next_seed(base_seed, counter);
+        deck = new_deck(seed);
+        for (var i = 0; i < 12; i++) board_deck_indices[i] = i;
+        available_deck_indices.length = 0;
+        for (var i = 12; i < deck_size; i++) available_deck_indices.push(i);
+        shuffle_array(available_deck_indices, game_rng);
+        found_sets = 0;
+        skips_remaining = settings['num_skips'];
+        skip_used = false;
+        compute_skip_require_at_set();
+
+        if (find_winning_path(0)) {
+          winning_seed = seed;
+          break;
+        }
+        counter++;
+      }
+
+      deck = new_deck(winning_seed);
+      $('.go-screen .loading-message', game_board).hide();
+      $('.go-screen .begin-button', game_board).show().off('click').click(go_click);
+    }, 0);
+  }
+
+  function format_time(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function compute_skip_require_at_set() {
+    var max_sets_val = settings['max_sets'];
+    var thr = settings['skip_require_threshold'];
+    if (thr === 0) {
+      skip_require_at_set = -1;
+    } else if (thr === -1) {
+      var rng = game_rng || Math.random;
+      skip_require_at_set = Math.floor(rng() * max_sets_val - 2); // 0 to max_sets-1
+    } else if (thr >= 1 && thr <= max_sets_val) {
+      skip_require_at_set = thr - 1; // 1-based to 0-based
+    } else {
+      skip_require_at_set = -1;
     }
   }
 
-  function start() {
-    selected = [];  // clear selected so the reset button can call this method
-    found_sets = [];
-    incorrect_guesses = 0; // reset incorrect guesses counter
-    set_indices = {}; // reset set indices
-    if (timer_var) {
-      clearInterval(timer_var);
-      timer_var = null;
-    }
+  function go_click() {
+    if (game_started) return;
+    game_started = true;
+    $('.go-screen', game_board).hide();
+    $('.game-area', game_board).show();
+    time_remaining = settings['initial_time'];
+    skips_remaining = settings['num_skips'];
+    game_score = [];
+    game_ended_reason = null;
+    found_sets = 0;
+    skip_used = false;
+    compute_skip_require_at_set();
+    deal_cards_challenge();
+    $('.goal', game_board).html('Sets: ' + found_sets + ' / ' + settings['max_sets']);
+    $('.game_status', game_board).html('');
+    $('.controls .skips-count', game_board).html(skips_remaining);
+    $('.controls .skip', game_board).off('click').click(skip_click);
+    $('.card', game_board).off('click').click(card_click);
 
-    console.log('Dealing...')
-    //deck = new_deck(settings['shuffle']);
-    deal_cards();
-    initial_sets = sets_in(cards_left());
-    
-    // Assign indices to each set for emoji coloring
-    for (var i = 0; i < initial_sets.length; i++) {
-      set_indices[initial_sets[i].set_id] = i;
-    }
-    
-    if (initial_sets.length == 0) {
-      $('.begin-screen', game_board).hide();
-      $('.game-area', game_board).show();
-      $('.goal',game_board).html("No sets found for this deal. Enjoy today's break. See you tomorrow!");
-    } else {
-      $('.begin-screen', game_board).show();
-      $('.game-area', game_board).hide();
-      $('.goal',game_board).html("Total sets: " + initial_sets.length);
-      update_game_status();
-
-      // make cards clickable
-      $('.card', game_board).click(card_click);
-
-      // Enable the finish button
-      $('.controls .finish',game_board).click(finish_click);
-      
-      // Enable the hint button
-      if (settings['hint_threshold'] != -1) {
-        $('.controls .hint',game_board).click(hint_click);
-      }
-
-      $('.control.begin-button', game_board).off('click').click(begin_click);
-    }
-
-    // Set the title based, including seed/date
-    $('.title',game_board).html('Savitr' + (typeof settings['shuffle'] === 'string' ? '<br/>' + settings['shuffle'] : ''));
+    if (timer_var) clearInterval(timer_var);
+    timer_var = setInterval(timer_countdown, 1000);
+    $('.title', game_board).html('Challenge');
   }
 
   function draw_board(rows,columns) {
     var board = $('<div/>').addClass('main');
 
-    var begin_screen = $('<div class="begin-screen"></div>');
-    begin_screen.append($('<button class="control begin-button">Begin</button>'));
-    board.append(begin_screen);
+    var go_screen = $('<div class="go-screen"></div>');
+    go_screen.append($('<span class="loading-message">Loading...</span>'));
+    go_screen.append($('<button class="control begin-button" style="display:none;">Begin</button>'));
+    board.append(go_screen);
 
     var game_area = $('<div class="game-area" style="display:none;"></div>');
     var table = $('<table/>').addClass('board');
@@ -113,9 +174,9 @@ var Savitr = function(game_board, options) {
                       '<th class="message" align="center" colspan="'+(columns-2)+'"></th>' +
                       '<th class="controls" align="right">'+
                           '<span class="timer">00:00</span>'+
-                          '<button class="control hint" style="display:none;">HINT</button>'+
+                          '<span class="skips-display">Skips: <span class="skips-count">3</span></span>'+
+                          '<button class="control skip">SKIP</button>'+
                           '<button class="control finish">FINISH</button>'+
-                         // '<button class="control reset">reset</button>'+
                       '</th>' +
                     '</tr>'));
     $('.controls .reset',table).click(start);
@@ -151,9 +212,11 @@ var Savitr = function(game_board, options) {
     });
 
     if (shuffle) {
-      // checked the code and null seed is same as Math.seedrandom()
-      var rng = new Math.seedrandom(typeof shuffle === 'string' ? shuffle : null);
-      shuffle_array(deck, rng);
+      // state: true enables .state() for save/restore (simulation backtracking)
+      game_rng = new Math.seedrandom(typeof shuffle === 'string' ? shuffle : null, { state: true });
+      shuffle_array(deck, game_rng);
+    } else {
+      game_rng = null;
     }
 
     return deck;
@@ -199,6 +262,265 @@ var Savitr = function(game_board, options) {
     }
   }
 
+  function card_to_file_name(card) {
+    var number_code = {one: '1', two: '2', three: '3'};
+    var color_code = {red: 'R', green: 'G', purple: 'P'};
+    var shading_code = {empty: 'O', striped: 'S', solid: 'F'};
+    var shape_code = {oval: 'O', squiggle: 'S', diamond: 'D'};
+    return number_code[card.number] + color_code[card.color] + shading_code[card.shading] + shape_code[card.shape];
+  }
+
+  function render_card_at_cell(cell_index, deck_index) {
+    var card = deck[deck_index];
+    var file_name = card_to_file_name(card);
+    var board_cell = $('.board-' + (cell_index + 1), game_board);
+    var img = $('<img id="card-' + deck_index + '" src="data:image/png;base64,' + images[file_name] + '"/>').addClass('card');
+    board_cell.html(img);
+  }
+
+  function get_random_from_available(n) {
+    var rng = game_rng || Math.random;
+    // console.log('get_random_from_available', n, available_deck_indices.lengt, game_rng);
+    if (available_deck_indices.length < n) {
+      var all = board_deck_indices.slice().concat(available_deck_indices);
+      shuffle_array(all, rng);
+      for (var i = 0; i < 12; i++) board_deck_indices[i] = all[i];
+      available_deck_indices = all.slice(12);
+    }
+    var result = [];
+    for (var i = 0; i < n && available_deck_indices.length > 0; i++) {
+      var idx = Math.floor(rng() * available_deck_indices.length);
+      result.push(available_deck_indices[idx]);
+      available_deck_indices.splice(idx, 1);
+    }
+    return result;
+  }
+
+  function deal_cards_challenge() {
+    board_deck_indices = [];
+    available_deck_indices = [];
+    for (var i = 0; i < deck_size; i++) {
+      if (i < 12) board_deck_indices.push(i);
+      else available_deck_indices.push(i);
+    }
+    shuffle_array(available_deck_indices, game_rng || Math.random);
+    for (var i = 0; i < 12; i++) {
+      render_card_at_cell(i, board_deck_indices[i]);
+    }
+  }
+
+  function do_replace_three_core(positions) {
+    var old_indices = [board_deck_indices[positions[0]], board_deck_indices[positions[1]], board_deck_indices[positions[2]]];
+    old_indices.forEach(function(idx) { available_deck_indices.push(idx); });
+
+    var skip_requirement_active = (skip_require_at_set >= 0 && found_sets >= skip_require_at_set && !skip_used);
+    var new_indices;
+
+    if (skip_requirement_active) {
+      var nine_cards = [];
+      for (var pos = 0; pos < 12; pos++) {
+        if (positions.indexOf(pos) === -1) {
+          nine_cards.push(deck[board_deck_indices[pos]]);
+        }
+      }
+      var base_count = sets_in(nine_cards).length;
+      var max_attempts = 500;
+      var attempts = 0;
+      while (attempts < max_attempts) {
+        new_indices = get_random_from_available(3);
+        if (new_indices.length < 3) break;
+        var twelve_cards = [];
+        for (var pos = 0; pos < 12; pos++) {
+          var idxInPositions = positions.indexOf(pos);
+          if (idxInPositions >= 0) {
+            twelve_cards.push(deck[new_indices[idxInPositions]]);
+          } else {
+            twelve_cards.push(deck[board_deck_indices[pos]]);
+          }
+        }
+        if (sets_in(twelve_cards).length <= base_count) break;
+        new_indices.forEach(function(idx) { available_deck_indices.push(idx); });
+        attempts++;
+      }
+      if (attempts >= max_attempts && new_indices.length === 3) {
+        new_indices.forEach(function(idx) { available_deck_indices.push(idx); });
+        new_indices = get_random_from_available(3);
+      } else if (new_indices.length < 3) {
+        new_indices.forEach(function(idx) { available_deck_indices.push(idx); });
+        new_indices = get_random_from_available(3);
+      }
+    } else {
+      new_indices = get_random_from_available(3);
+    }
+
+    for (var i = 0; i < 3; i++) {
+      if (new_indices[i] !== undefined) {
+        board_deck_indices[positions[i]] = new_indices[i];
+      }
+    }
+    return new_indices;
+  }
+
+  function replace_three_at_positions(positions) {
+    do_replace_three_core(positions);
+    for (var i = 0; i < 3; i++) {
+      render_card_at_cell(positions[i], board_deck_indices[positions[i]]);
+    }
+    $('.card', game_board).off('click').click(card_click);
+  }
+
+  function do_replace_all_core() {
+    var rng = game_rng || Math.random;
+    for (var i = 0; i < 12; i++) {
+      available_deck_indices.push(board_deck_indices[i]);
+    }
+    shuffle_array(available_deck_indices, rng);
+    var new_indices = get_random_from_available(12);
+    for (var i = 0; i < 12; i++) {
+      board_deck_indices[i] = new_indices[i];
+    }
+  }
+
+  function replace_all_cards() {
+    do_replace_all_core();
+    for (var i = 0; i < 12; i++) {
+      render_card_at_cell(i, board_deck_indices[i]);
+    }
+    $('.card', game_board).off('click').click(card_click);
+  }
+
+  function get_board_cards() {
+    var cards = [];
+    for (var i = 0; i < 12; i++) {
+      cards.push(deck[board_deck_indices[i]]);
+    }
+    return cards;
+  }
+
+  function save_sim_state() {
+    var s = {
+      board: board_deck_indices.slice(0),
+      available: available_deck_indices.slice(0),
+      found_sets: found_sets,
+      skips_remaining: skips_remaining,
+      skip_used: skip_used
+    };
+    if (game_rng && game_rng.state) {
+      s.rng_state = game_rng.state();
+    }
+    return s;
+  }
+
+  function restore_sim_state(s) {
+    for (var i = 0; i < 12; i++) board_deck_indices[i] = s.board[i];
+    available_deck_indices.length = 0;
+    for (var i = 0; i < s.available.length; i++) available_deck_indices.push(s.available[i]);
+    found_sets = s.found_sets;
+    skips_remaining = s.skips_remaining;
+    skip_used = s.skip_used;
+    if (s.rng_state) {
+      game_rng = new Math.seedrandom(s.rng_state, { state: true });
+    }
+  }
+
+  function sim_replace_three(positions) {
+    do_replace_three_core(positions);
+  }
+
+  function sim_skip() {
+    if (skips_remaining <= 0) return false;
+    skips_remaining--;
+    skip_used = true;
+    do_replace_all_core();
+    return true;
+  }
+
+  function find_winning_path(step) {
+    if (step >= settings['max_sets']) return true;
+    var state = save_sim_state();
+    var cards = get_board_cards();
+    var sets = sets_in(cards);
+    if (sets.length === 0) {
+      if (skips_remaining > 0) {
+        if (!sim_skip()) { restore_sim_state(state); return false; }
+        if (find_winning_path(step)) return true;
+      }
+      restore_sim_state(state);
+      return false;
+    }
+    for (var i = 0; i < sets.length; i++) {
+      restore_sim_state(state);
+      var positions = sets[i].set_id.split('-').map(Number);
+      sim_replace_three(positions);
+      found_sets++;
+      if (find_winning_path(step + 1)) return true;
+    }
+    restore_sim_state(state);
+    return false;
+  }
+
+  function next_seed(seed, counter) {
+    if (typeof seed === 'string' && seed.length > 0) {
+      return seed + '_' + counter;
+    }
+    return String(counter);
+  }
+
+  function timer_countdown() {
+    if (game_ended_reason) return;
+    time_remaining--;
+    timer_display.html(format_time(Math.max(0, time_remaining)));
+    if (time_remaining <= 0) {
+      end_game('time');
+    }
+  }
+
+  function end_game(reason) {
+    game_ended_reason = reason;
+    if (timer_var) {
+      clearInterval(timer_var);
+      timer_var = null;
+    }
+    $('.card', game_board).off('click');
+    $('.controls .skip', game_board).prop('disabled', true);
+    if (reason === 'time') {
+      game_score.push(String.fromCodePoint(0x1F550)); // clock
+      $('.goal', game_board).html('Time\'s up! Sets found: ' + found_sets);
+    } else {
+      game_score.push(String.fromCodePoint(0x1F3C6)); // trophy
+      $('.goal', game_board).html('All ' + settings['max_sets'] + ' sets found!');
+    }
+    $('.game_status', game_board).html(game_score.join(''));
+    $('.controls .finish', game_board).html('SHARE');
+  }
+
+  function skip_click() {
+    if (game_ended_reason || skips_remaining <= 0) return;
+    skips_remaining--;
+    
+    time_remaining += settings['time_per_set'];
+    var board_cards = [];
+    for (var i = 0; i < 12; i++) {
+      board_cards.push(deck[board_deck_indices[i]]);
+    }
+    var had_set = sets_in(board_cards).length >= 1;
+    
+    // if this skip was the required one, insert the lock emoji where the skip requirement began and update the game status
+    if (skip_require_at_set >= 0 && found_sets >= skip_require_at_set) {
+      game_score.splice(skip_require_at_set + 1, 0, String.fromCodePoint(0x1F512)); // lock emoji
+      game_score.push(String.fromCodePoint(0x1F511)); // key emoji
+      skip_used = true; // clears skip requirement until next game  
+    } else {
+      game_score.push(String.fromCodePoint(had_set ? 0x1F7E5 : 0x1F7E8)); // red if unnecessary (had a set), else yellow
+    }
+    
+    $('.controls .skips-count', game_board).html(skips_remaining);
+    $('.game_status', game_board).html(game_score.join(''));
+    replace_all_cards();
+    update_status(['Skipped! +' + settings['time_per_set'] + 's']);
+    setTimeout(function() { update_status(''); }, 1000);
+  }
+
   function card_click() {
     var card_number=$(this).attr('id').split('-')[1]; // e.g. id="card-1" => "1"
 
@@ -223,86 +545,47 @@ var Savitr = function(game_board, options) {
           selected_cards.push(deck[c]);
         });
         if (is_set(selected_cards)) {
-          var messages = ['SET!'];
-
-          selected_card_number_string = selected.sort().join('-')
-          set_already_found = found_sets.includes(selected_card_number_string);
-
-          if (!set_already_found) {
-            // Add celebration animation to selected cards
-            $('.selected', game_board).addClass('set-found');
-            
-            // Create found set display with animation
-            var setContainer = $('<div class="found-set-item"/>');
-            cloned = $('.selected .card', game_board).clone();
-            setContainer.append(cloned);
-            $('.found_sets', game_board).append(setContainer);
-            
-            // Add a brief delay before removing selection to show the animation
-            setTimeout(function() {
-              $('.selected', game_board).toggleClass('selected');
-              $('.selected', game_board).removeClass('set-found');
-            }, 600);
-            
-          // One game variation is to remove a found set.
-          // Leaving a found set visible allows finding other sets that may
-          // intersect with one of these cards.
-          //          $('.selected .card', game_board).remove();
-            console.log(selected);
-            found_sets.push(selected_card_number_string);
-            console.log(found_sets);
+          time_remaining += settings['time_per_set'];
+          game_score.push(String.fromCodePoint(0x1F7E9)); // green square
+          $('.selected', game_board).addClass('set-found');
+          var setContainer = $('<div class="found-set-item"/>');
+          var cloned = $('.selected .card', game_board).clone();
+          setContainer.append(cloned);
+          $('.found_sets', game_board).append(setContainer);
+          var selected_deck = selected.map(Number);
+          var positions = [];
+          for (var p = 0; p < 12; p++) {
+            if (selected_deck.indexOf(board_deck_indices[p]) >= 0) positions.push(p);
+          }
+          setTimeout(function() {
+            $('.selected', game_board).removeClass('selected set-found');
             selected = [];
-
-            // update game status
-            update_game_status();
-
-          } else {
-            messages.push('ALREADY FOUND');
-          }
-
-          // TODO: leaving this code here, but it won't get called in the
-          // current implementation of leaving all cards present rather than removing them
-          if ($('.card', game_board).length == 0) {
-            messages.push('CLEARED!!!');
-            finish_click();
-          }
-
-          if (found_sets.length == initial_sets.length) {
-            messages.push('NO SETS LEFT');
-            finish_click();
-          }
-
-          update_status(messages);
-          console.log(messages, selected_cards);
+            replace_three_at_positions(positions);
+            found_sets++;
+            $('.goal', game_board).html('Sets: ' + found_sets + ' / ' + settings['max_sets']);
+            $('.game_status', game_board).html(game_score.join(''));
+            if (found_sets >= settings['max_sets']) end_game('max_sets');
+          }, 600);
+          update_status(['SET! +' + settings['time_per_set'] + 's']);
+          setTimeout(function() { update_status(''); }, 1500);
         } else {
-          // three cards selected, but not a set, let's log why:
-          diff = vector_mod3(vector_sum(selected_cards));
-          console.log(selected_cards,
-            'not a set because',diff);
-
-          // Track incorrect guess
-          incorrect_guesses++;
-          
-          // Show hint button after 5 incorrect guesses
-          if (incorrect_guesses >= settings['hint_threshold']) {
-            $('.controls .hint', game_board).show();
+          time_remaining -= settings['time_per_incorrect_guess'];
+          time_remaining = Math.max(0, time_remaining);
+          game_score.push(String.fromCodePoint(0x2B1B)); // black square (incorrect guess)
+          if (time_remaining <= 0) end_game('time');
+          $('.game_status', game_board).html(game_score.join(''));
+          timer_display.html(format_time(time_remaining));
+          var diff = vector_mod3(vector_sum(selected_cards));
+          var diff_attrs = [];
+          for (var key in diff) {
+            if (Object.prototype.hasOwnProperty.call(diff, key) && diff[key] > 0) diff_attrs.push(key);
           }
-
-          // update status on why it isn't a set
-          diff_attrs = [];
-          for (const key in diff) {
-            if (Object.prototype.hasOwnProperty.call(diff, key)) { // Important for avoiding inherited properties
-              const value = diff[key];
-              if (value > 0) diff_attrs.push(key);
-            }
-          }
-          update_status("Not a set: " + diff_attrs.join(','))
-          
-          // Add shake animation for invalid set and clear selection
+          update_status("Not a set: " + diff_attrs.join(',') + " -" + settings['time_per_incorrect_guess'] + "s");
           $('.selected', game_board).addClass('invalid-set');
           setTimeout(function() {
             $('.selected', game_board).removeClass('selected invalid-set');
             selected = [];
+            setTimeout(function() { update_status(''); }, 500);
           }, 800);
         }
       }
@@ -338,37 +621,52 @@ var Savitr = function(game_board, options) {
 
   function finish_click() {
     if (timer_var) {
-      // FINISH
+      if (game_started) {
+        end_game('time');
+        return;
+      }
       clearInterval(timer_var);
       timer_var = null;
 
       $('.card', game_board).off('click');
-//      $('.controls .finish',game_board).off('click'); // Leave enabled for sharing, but used to disable in previous versions
-      $('.controls .finish',game_board).html("SHARE")
-
-      // TODO: perhaps better is to keep a `found` flag on the `initial_sets` rather than the 
-      console.log('initial sets', initial_sets, 'sets found', found_sets);
+      $('.controls .finish',game_board).html("SHARE");
 
       for (var i=0; i < initial_sets.length; i++) {
         set_id = initial_sets[i]['set_id'];
         if (!found_sets.includes(set_id)) {
           card_numbers = set_id.split('-');
           
-          cloned = $('.board #card-'+card_numbers[0]+',.board #card-'+card_numbers[1]+',.board #card-'+card_numbers[2], game_board).clone();
+          // 10/04/25: Fixed bug where previously cloned cards were accumulating in subsequent sets
           var setContainer = $('<div class="found-set-item"/>');
-          setContainer.append(cloned);
+          for (var j = 0; j < card_numbers.length; j++) {
+            var cardElement = $('#card-' + card_numbers[j], game_board);
+            if (cardElement.length > 0) {
+              var clonedCard = cardElement.clone();
+              clonedCard.css("border", "2px solid red");
+              clonedCard.css("width", "30px");
+              clonedCard.css("height", "30px");
+              clonedCard.css("border-radius", "4px");
+              setContainer.append(clonedCard);
+            }
+          }
+          
           $('.found_sets', game_board).append(setContainer);
           // console.log('set_id', set_id, 'cloned set with', card_numbers.length, 'cards');
         }
 
       }
+
+
     } else {
-      // SHARE
-      game_seed = (typeof settings['shuffle'] === 'string' ? settings['shuffle'] : '');      
-      copy_text = "Savitr " + 
-                    game_seed + " " +
-                    ": " + game_status +
-                    " " + timer_display.html()
+      var today = new Date();
+      var month = String(today.getMonth() + 1).padStart(2, '0');
+      var day = String(today.getDate()).padStart(2, '0');
+      var year = String(today.getFullYear()).slice(-2);
+      var dateString = month + '/' + day + '/' + year;
+
+      var copy_text = (game_score && game_score.length > 0)
+        ? "Savitr " + dateString + ": " + game_score.join('')
+        : "Savitr " + dateString + ": " + game_status + " " + timer_display.html();
 
       navigator.clipboard.writeText(copy_text)
       .then(() => {
@@ -485,9 +783,9 @@ var Savitr = function(game_board, options) {
       }
     }
 
-    console.log(cards.length, ' cards ',
-                counter, ' possible sets evaluated.  Found ',
-                sets.length, 'sets:', sets);
+    // console.log(cards.length, ' cards ',
+    //             counter, ' possible sets evaluated.  Found ',
+    //             sets.length, 'sets:', sets);
 
     return sets;
   }

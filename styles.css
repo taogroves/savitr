@@ -40,18 +40,64 @@ body {
   margin-bottom: 20px;
 }
 
-.instructions {
+.instructions-wrapper {
+  margin-bottom: 30px;
   background: #f7fafc;
   border-left: 4px solid #667eea;
-  padding: 20px;
-  margin-bottom: 30px;
   border-radius: 8px;
+  overflow: hidden;
 }
 
-.instructions h3 {
+.instructions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 12px 20px;
+  flex-wrap: wrap;
+}
+
+.instructions-header h3 {
   color: #4a5568;
-  margin-bottom: 15px;
+  margin: 0;
   font-size: 1.3rem;
+}
+
+.instructions-toggle {
+  background: transparent;
+  border: 1px solid #667eea;
+  color: #667eea;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.instructions-toggle:hover {
+  background: #667eea;
+  color: white;
+}
+
+.instructions {
+  padding: 0 20px 20px 20px;
+  margin-top: -8px;
+}
+
+.instructions-wrapper .instructions {
+  padding-top: 0;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-bottom: 20px;
+}
+
+.instructions p {
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.instructions p:first-child {
+  margin-top: 0;
 }
 
 .instructions p {
@@ -73,11 +119,40 @@ body {
   margin-bottom: 30px;
 }
 
+.game-container--full-width {
+  width: 100%;
+}
+
+.game-container--full-width > div {
+  width: 100%;
+  min-width: 0;
+}
+
 .savitr {
   background: white;
   border-radius: 15px;
   padding: 20px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+.savitr .main {
+  width: 100%;
+}
+
+.savitr .begin-screen,
+.savitr .go-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 1rem;
+}
+
+.savitr .go-screen .loading-message {
+  color: #718096;
+  font-size: 1.1rem;
 }
 
 .board {
