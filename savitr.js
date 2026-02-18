@@ -5,6 +5,7 @@ var Savitr = function(game_board, options) {
     columns: 3,
     rows:    4,
     shuffle: true,
+    allow_no_sets: false,
     hint_threshold: 5 // number of incorrect guesses before hint button is shown, -1 for no hint button
   };
 
@@ -40,6 +41,13 @@ var Savitr = function(game_board, options) {
   var total_seconds = 0;
   var initial_sets = [];
   var game_status = "-";
+  var display_seed = null; // in single mode, original seed (ISO date YYYY-MM-DD) for display and share
+
+  function format_display_date(isoDateStr) {
+    // Format "YYYY-MM-DD" as "Tuesday, Feb 18"
+    var d = new Date(isoDateStr + 'T12:00:00');
+    return isNaN(d.getTime()) ? isoDateStr : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  }
 
   function begin_click() {
     $('.begin-screen', game_board).hide();
@@ -58,6 +66,28 @@ var Savitr = function(game_board, options) {
     if (timer_var) {
       clearInterval(timer_var);
       timer_var = null;
+    }
+
+    // In single mode, remember original seed (ISO date) for display and share
+    if (typeof settings['shuffle'] === 'string') {
+      display_seed = settings['shuffle'];
+    }
+    // In single mode (string seed), if allow_no_sets is false, increment seed until at least one set exists
+    if (typeof settings['shuffle'] === 'string' && !settings['allow_no_sets']) {
+      var dealt = deck.slice(0, rows * columns);
+      if (sets_in(dealt).length === 0) {
+        var baseSeed = settings['shuffle'];
+        var trySeed = baseSeed;
+        var attempt = 0;
+        for (;;) {
+          deck = new_deck(trySeed);
+          dealt = deck.slice(0, rows * columns);
+          if (sets_in(dealt).length >= 1) break;
+          attempt++;
+          trySeed = baseSeed + '-' + attempt;
+        }
+        settings['shuffle'] = trySeed;
+      }
     }
 
     console.log('Dealing...')
@@ -94,8 +124,8 @@ var Savitr = function(game_board, options) {
       $('.control.begin-button', game_board).off('click').click(begin_click);
     }
 
-    // Set the title based, including seed/date
-    $('.title',game_board).html('Savitr' + (typeof settings['shuffle'] === 'string' ? '<br/>' + settings['shuffle'] : ''));
+    // Set the title based, including seed/date (formatted for display)
+    $('.title',game_board).html('Savitr' + (display_seed ? '<br/>' + format_display_date(display_seed) : ''));
   }
 
   function draw_board(rows,columns) {
@@ -364,7 +394,7 @@ var Savitr = function(game_board, options) {
       }
     } else {
       // SHARE
-      game_seed = (typeof settings['shuffle'] === 'string' ? settings['shuffle'] : '');      
+      game_seed = (display_seed ? display_seed : (typeof settings['shuffle'] === 'string' ? settings['shuffle'] : ''));      
       copy_text = "Savitr " + 
                     game_seed + " " +
                     ": " + game_status +

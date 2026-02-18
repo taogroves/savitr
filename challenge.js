@@ -466,6 +466,41 @@ var Savitr = function(game_board, options) {
     return String(counter);
   }
 
+  // Score from challenge emoji string: 100 per set, -200 unnecessary skip, -50 necessary skip,
+  // 0 for key (skip-require skip), +100 extra per set between lock and key, +1 per second remaining.
+  function computeChallengeScore(emojiArray, secondsRemaining) {
+    if (!emojiArray || emojiArray.length === 0) {
+      return (secondsRemaining || 0);
+    }
+    var LOCK = 0x1F512;
+    var KEY = 0x1F511;
+    var GREEN = 0x1F7E9;   // set found
+    var RED = 0x1F7E5;     // unnecessary skip
+    var YELLOW = 0x1F7E8;  // necessary skip
+    var lockIdx = -1;
+    var keyIdx = -1;
+    var i;
+    for (i = 0; i < emojiArray.length; i++) {
+      var cp = emojiArray[i].codePointAt(0);
+      if (cp === LOCK) lockIdx = i;
+      if (cp === KEY) keyIdx = i;
+    }
+    var score = typeof secondsRemaining === 'number' ? Math.max(0, secondsRemaining) : 0;
+    for (i = 0; i < emojiArray.length; i++) {
+      var c = emojiArray[i].codePointAt(0);
+      if (c === GREEN) {
+        score += 100;
+        if (lockIdx >= 0 && keyIdx >= 0 && i > lockIdx && i < keyIdx) score += 100;
+      } else if (c === RED) {
+        score -= 200;
+      } else if (c === YELLOW) {
+        score -= 50;
+      }
+      // KEY = 0, others (lock, black, clock, trophy) = 0
+    }
+    return score;
+  }
+
   function timer_countdown() {
     if (game_ended_reason) return;
     time_remaining--;
@@ -664,9 +699,18 @@ var Savitr = function(game_board, options) {
       var year = String(today.getFullYear()).slice(-2);
       var dateString = month + '/' + day + '/' + year;
 
-      var copy_text = (game_score && game_score.length > 0)
-        ? "Savitr " + dateString + ": " + game_score.join('')
-        : "Savitr " + dateString + ": " + game_status + " " + timer_display.html();
+      var copy_text;
+      if (game_score && game_score.length > 0) {
+        var score = computeChallengeScore(game_score, time_remaining);
+        var lastEmoji = game_score[game_score.length - 1];
+        var restEmojis = game_score.slice(0, -1);
+        var line1 = "  Savitr " + dateString + " ";
+        var line2 = "         " + score + "  " + lastEmoji + "         ";
+        var line3 = restEmojis.length > 0 ? "  " + restEmojis.join(" ") : "";
+        copy_text = line1 + "\n" + line2 + (line3 ? "\n" + line3 : "");
+      } else {
+        copy_text = "Savitr " + dateString + ": " + game_status + " " + timer_display.html();
+      }
 
       navigator.clipboard.writeText(copy_text)
       .then(() => {
