@@ -32,7 +32,7 @@
             <p>A slow puzzle for one player. Divide all 18 cards into six non-overlapping sets.</p>
           </a>
           <a href="classic.html" class="mode-card">
-            <span class="mode-icon">◇</span>
+            <span class="mode-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
             <h3>Classic</h3>
             <p>Traditional Set for 2–4 players. Find sets before your opponents to score points.</p>
           </a>
@@ -80,6 +80,10 @@
         font-size: 2rem;
         margin-bottom: 12px;
         color: #667eea;
+      }
+      .mode-icon svg {
+        width: 2rem;
+        height: 2rem;
       }
       .mode-card h3 {
         color: #2d3748;
