@@ -43,6 +43,10 @@ var Savitr = function(game_board, options) {
   var game_status = "-";
   var display_seed = null; // in single mode, original seed (ISO date YYYY-MM-DD) for display and share
 
+  function interaction_delay(milliseconds) {
+    return window.matchMedia('(hover: none), (pointer: coarse), (max-width: 768px)').matches ? 0 : milliseconds;
+  }
+
   function format_display_date(isoDateStr) {
     // Format "YYYY-MM-DD" as "Tuesday, Feb 18"
     var d = new Date(isoDateStr + 'T12:00:00');
@@ -272,7 +276,7 @@ var Savitr = function(game_board, options) {
             setTimeout(function() {
               $('.selected', game_board).toggleClass('selected');
               $('.selected', game_board).removeClass('set-found');
-            }, 600);
+            }, interaction_delay(600));
             
           // One game variation is to remove a found set.
           // Leaving a found set visible allows finding other sets that may
@@ -333,7 +337,7 @@ var Savitr = function(game_board, options) {
           setTimeout(function() {
             $('.selected', game_board).removeClass('selected invalid-set');
             selected = [];
-          }, 800);
+          }, interaction_delay(800));
         }
       }
     } else {

@@ -385,8 +385,19 @@ body {
     padding: 10px;
   }
 
-  .container {
-    padding: 20px;
+  .container:has(.game-container--full-width) {
+    padding: 12px;
+  }
+
+  .game-container--full-width .savitr {
+    padding: 8px;
+  }
+
+  .board {
+    width: min(100%, 500px);
+    max-width: 500px;
+    border-spacing: 4px;
+    padding: 5px;
   }
 
   .header h1 {
@@ -394,17 +405,12 @@ body {
   }
 
   .board td {
-    width: 80px !important;
-    height: 80px !important;
-    min-width: 80px;
-    max-width: 80px;
-    min-height: 80px;
-    max-height: 80px;
-  }
-
-  .board {
-    border-spacing: 4px;
-    padding: 10px;
+    width: 33.333% !important;
+    height: clamp(68px, 22vw, 100px) !important;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    max-height: none;
   }
 
   .controls {
@@ -419,12 +425,12 @@ body {
 
 @media (max-width: 480px) {
   .board td {
-    width: 60px !important;
-    height: 60px !important;
-    min-width: 60px;
-    max-width: 60px;
-    min-height: 60px;
-    max-height: 60px;
+    width: 33.333% !important;
+    height: clamp(68px, 22vw, 100px) !important;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    max-height: none;
   }
 
   .header h1 {
@@ -480,25 +486,25 @@ body {
 
 @media (max-width: 480px) {
   .container:has(.game-container--classic) {
-    padding: 8px;
+    padding: 12px;
   }
 
   .game-container--classic .savitr {
-    padding: 4px;
+    padding: 8px;
   }
 
   .classic-board td {
-    width: 52px !important;
-    height: 52px !important;
-    min-width: 52px;
-    max-width: 52px;
-    min-height: 52px;
-    max-height: 52px;
+    width: 33.333% !important;
+    height: clamp(68px, 22vw, 100px) !important;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    max-height: none;
   }
 
   .classic-board {
-    padding: 4px;
-    border-spacing: 2px;
+    padding: 5px;
+    border-spacing: 4px;
   }
 }
 
@@ -812,6 +818,34 @@ body {
   background: linear-gradient(135deg, #fff9c4 0%, #fef3c7 100%) !important;
   animation: hintPulse 1s ease-in-out infinite;
   box-shadow: 0 0 20px rgba(255, 215, 0, 0.6) !important;
+}
+
+@media (hover: none), (pointer: coarse), (max-width: 768px) {
+  .board td,
+  .card,
+  .control,
+  .instructions-toggle,
+  .partition-cell,
+  .found-set-item {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .board td:hover,
+  .board td.selected,
+  .board td:hover .card,
+  .control:hover,
+  .control:active,
+  .partition-cell:hover,
+  .partition-cell.partition-selected {
+    transform: none;
+  }
+
+  .hint-highlight,
+  .set-found,
+  .invalid-set {
+    animation: none !important;
+  }
 }
 
 @keyframes hintPulse {

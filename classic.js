@@ -41,6 +41,10 @@ var Savitr = function(game_board, options) {
   var player_scores = [];
   var player_names = ['Player 1', 'Player 2', 'Player 3', 'Player 4'];
 
+  function interaction_delay(milliseconds) {
+    return window.matchMedia('(hover: none), (pointer: coarse), (max-width: 768px)').matches ? 0 : milliseconds;
+  }
+
   game_board.html(draw_board(rows,columns));
 
   game_board.addClass('savitr classic-mode'); // tag the game board, for styling and identification purposes
@@ -430,7 +434,7 @@ var Savitr = function(game_board, options) {
         update_deals_title();
         update_no_sets_button();
         check_end_game();
-      }, 600);
+      }, interaction_delay(600));
     } else {
       var diff = vector_mod3(vector_sum(selected_cards));
       var diff_attrs = [];
@@ -443,7 +447,7 @@ var Savitr = function(game_board, options) {
         $('.selected', game_board).removeClass('selected invalid-set');
         selected = [];
         setTimeout(function() { update_status(''); }, 500);
-      }, 800);
+      }, interaction_delay(800));
     }
   }
 

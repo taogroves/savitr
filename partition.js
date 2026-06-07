@@ -28,6 +28,10 @@ var PartitionSavitr = function(game_board, options) {
   var next_group_id = 0;
   var rng = Math.random;
 
+  function interaction_delay(milliseconds) {
+    return window.matchMedia('(hover: none), (pointer: coarse), (max-width: 768px)').matches ? 0 : milliseconds;
+  }
+
   game_board.addClass('savitr partition-mode');
 
   function start() {
@@ -122,7 +126,7 @@ var PartitionSavitr = function(game_board, options) {
       $('.partition-cell.partition-selected', game_board).addClass('invalid-set');
       setTimeout(function() {
         $('.partition-cell', game_board).removeClass('invalid-set');
-      }, 500);
+      }, interaction_delay(500));
       update_status('Those three are not a set. Click one to remove it, or choose another card to start over.');
     }
   }

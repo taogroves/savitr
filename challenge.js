@@ -49,6 +49,10 @@ var Savitr = function(game_board, options) {
   var skip_used = false; // true after player uses a skip (clears skip requirement for this game)
   var game_rng = null; // seeded RNG from initial deal, used for skip/set replacement so same seed => same game
 
+  function interaction_delay(milliseconds) {
+    return window.matchMedia('(hover: none), (pointer: coarse), (max-width: 768px)').matches ? 0 : milliseconds;
+  }
+
   game_board.html(draw_board(rows,columns));
 
   game_board.addClass('savitr'); // tag the game board, for styling and identification purposes
@@ -600,7 +604,7 @@ var Savitr = function(game_board, options) {
             $('.goal', game_board).html('Sets: ' + found_sets + ' / ' + settings['max_sets']);
             $('.game_status', game_board).html(game_score.join(''));
             if (found_sets >= settings['max_sets']) end_game('max_sets');
-          }, 600);
+          }, interaction_delay(600));
           update_status(['SET! +' + settings['time_per_set'] + 's']);
           setTimeout(function() { update_status(''); }, 1500);
         } else {
@@ -621,7 +625,7 @@ var Savitr = function(game_board, options) {
             $('.selected', game_board).removeClass('selected invalid-set');
             selected = [];
             setTimeout(function() { update_status(''); }, 500);
-          }, 800);
+          }, interaction_delay(800));
         }
       }
     } else {
