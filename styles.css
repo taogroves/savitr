@@ -618,11 +618,6 @@ body {
 }
 
 /* Daily & Challenge modes */
-.daily-page,
-.challenge-page {
-  max-width: 1500px;
-}
-
 .game-container--daily .savitr,
 .game-container--challenge .savitr {
   padding: 16px;
@@ -654,6 +649,11 @@ body {
   .mode-header .mode-controls {
     padding-top: 6px;
     padding-right: 12px;
+  }
+
+  .set-cell {
+    max-height: 150px;
+    width: 100%;
   }
 }
 
@@ -865,8 +865,8 @@ body {
 }
 
 @media (max-width: 768px) {
-  .container.daily-page,
-  .container.challenge-page,
+  .container:has(.game-container--daily),
+  .container:has(.game-container--challenge),
   .container.partition-page {
     padding: 12px;
   }
