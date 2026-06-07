@@ -62,8 +62,17 @@ var Savitr = function(game_board, options) {
   var total_seconds = 0;
   var initial_sets = [];
   var game_status = "-";
+  var display_seed = null;
+  var status_clear_timer = null;
+  var status_fade_timer = null;
+
+  function format_display_date(isoDateStr) {
+    var d = new Date(isoDateStr + 'T12:00:00');
+    return isNaN(d.getTime()) ? isoDateStr : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  }
 
   function start() {
+    $('.challenge-main', game_board).removeClass('game-active');
     selected = [];
     found_sets = 0;
     incorrect_guesses = 0;
@@ -74,6 +83,11 @@ var Savitr = function(game_board, options) {
     game_score = [];
     skips_remaining = settings['num_skips'];
     time_remaining = settings['initial_time'];
+
+    if (typeof settings['shuffle'] === 'string') {
+      display_seed = settings['shuffle'];
+    }
+    update_mode_header();
 
     $('.go-screen', game_board).show();
     $('.game-area', game_board).hide();
@@ -143,6 +157,7 @@ var Savitr = function(game_board, options) {
     game_started = true;
     $('.go-screen', game_board).hide();
     $('.game-area', game_board).show();
+    $('.challenge-main', game_board).addClass('game-active');
     time_remaining = settings['initial_time'];
     skips_remaining = settings['num_skips'];
     game_score = [];
@@ -159,41 +174,41 @@ var Savitr = function(game_board, options) {
 
     if (timer_var) clearInterval(timer_var);
     timer_var = setInterval(timer_countdown, 1000);
-    $('.title', game_board).html('Challenge');
+    update_mode_header();
+  }
+
+  function update_mode_header() {
+    $('.title', game_board).text('Challenge');
+    $('.mode-seed', game_board).text(display_seed ? format_display_date(display_seed) : '');
   }
 
   function draw_board(rows,columns) {
-    var board = $('<div/>').addClass('main');
+    var board = $('<div/>').addClass('main challenge-main');
 
     var go_screen = $('<div class="go-screen"></div>');
     go_screen.append($('<span class="loading-message">Loading...</span>'));
     go_screen.append($('<button class="control begin-button" style="display:none;">Begin</button>'));
     board.append(go_screen);
 
+    var header = $('<div class="mode-header"></div>');
+    header.append($('<div><h2 class="title">Challenge</h2><p class="mode-seed"></p></div>'));
+    header.append($('<div class="mode-controls controls">'+
+                        '<span class="timer">00:00</span>'+
+                        '<span class="skips-display">Skips: <span class="skips-count">3</span></span>'+
+                        '<button class="control skip">SKIP</button>'+
+                        '<button class="control finish">FINISH</button>'+
+                      '</div>'));
+    board.append(header);
+
     var game_area = $('<div class="game-area" style="display:none;"></div>');
-    var table = $('<table/>').addClass('board');
 
-    table.append($('<tr class="header">'+
-                      '<th class="title" align="left"></th>' +
-                      '<th class="message" align="center" colspan="'+(columns-2)+'"></th>' +
-                      '<th class="controls" align="right">'+
-                          '<span class="timer">00:00</span>'+
-                          '<span class="skips-display">Skips: <span class="skips-count">3</span></span>'+
-                          '<button class="control skip">SKIP</button>'+
-                          '<button class="control finish">FINISH</button>'+
-                      '</th>' +
-                    '</tr>'));
-    $('.controls .reset',table).click(start);
-
-    for (var r=0; r < rows; r++) {
-      var row = $('<tr/>');
-      for (var c=0; c < columns; c++) {
-        row.append($('<td/>').addClass('board-' + ((r*columns)+c+1)));
-      }
-      table.append(row);
+    var set_board = $('<div class="set-board" role="grid" aria-label="Challenge puzzle"></div>');
+    for (var i = 0; i < rows * columns; i++) {
+      set_board.append($('<div class="set-cell board-' + (i + 1) + '" role="gridcell"></div>'));
     }
+    game_area.append(set_board);
 
-    game_area.append(table);
+    game_area.append($('<div class="mode-footer"><span class="message"></span></div>'));
     game_area.append($('<div><span class="goal"/>&nbsp;<span class="game_status"/></div><div class="found_sets"><h4>🎉 Sets Found:</h4></div>'));
     board.append(game_area);
 
@@ -226,10 +241,29 @@ var Savitr = function(game_board, options) {
     return deck;
   }
 
-  function update_status(messages) {
+  function update_status(messages, auto_clear_after) {
     // could pass in a "string" or ["array","of","strings"]
     messages = [].concat(messages);
-    $('.message',game_board).html(messages.join(' '));
+    var el = $('.mode-footer .message', game_board);
+    if (status_clear_timer) {
+      clearTimeout(status_clear_timer);
+      status_clear_timer = null;
+    }
+    if (status_fade_timer) {
+      clearTimeout(status_fade_timer);
+      status_fade_timer = null;
+    }
+    el.removeClass('message-fading');
+    var text = messages.join(' ');
+    el.html(text);
+    if (auto_clear_after && text) {
+      status_clear_timer = setTimeout(function() {
+        el.addClass('message-fading');
+        status_fade_timer = setTimeout(function() {
+          el.html('').removeClass('message-fading');
+        }, 300);
+      }, auto_clear_after);
+    }
 
     // Used to display number of sets left in status bar
     // How many sets are there laid out?
@@ -556,8 +590,7 @@ var Savitr = function(game_board, options) {
     $('.controls .skips-count', game_board).html(skips_remaining);
     $('.game_status', game_board).html(game_score.join(''));
     replace_all_cards();
-    update_status(['Skipped! +' + settings['time_per_set'] + 's']);
-    setTimeout(function() { update_status(''); }, 1000);
+    update_status(['Skipped! +' + settings['time_per_set'] + 's'], 1000);
   }
 
   function card_click() {
@@ -575,7 +608,7 @@ var Savitr = function(game_board, options) {
       // not already selected, add it if there's not already 3 selected
       if (selected.length < 3) {
         selected.push(card_number);
-        $(this).parent('td').toggleClass('selected');
+        $(this).closest('.set-cell').toggleClass('selected');
       }
 
       if (selected.length == 3) {
@@ -605,8 +638,7 @@ var Savitr = function(game_board, options) {
             $('.game_status', game_board).html(game_score.join(''));
             if (found_sets >= settings['max_sets']) end_game('max_sets');
           }, interaction_delay(600));
-          update_status(['SET! +' + settings['time_per_set'] + 's']);
-          setTimeout(function() { update_status(''); }, 1500);
+          update_status(['SET! +' + settings['time_per_set'] + 's'], 1500);
         } else {
           time_remaining -= settings['time_per_incorrect_guess'];
           time_remaining = Math.max(0, time_remaining);
@@ -619,12 +651,11 @@ var Savitr = function(game_board, options) {
           for (var key in diff) {
             if (Object.prototype.hasOwnProperty.call(diff, key) && diff[key] > 0) diff_attrs.push(key);
           }
-          update_status("Not a set: " + diff_attrs.join(',') + " -" + settings['time_per_incorrect_guess'] + "s");
+          update_status("Not a set: " + diff_attrs.join(',') + " -" + settings['time_per_incorrect_guess'] + "s", interaction_delay(800) + 500);
           $('.selected', game_board).addClass('invalid-set');
           setTimeout(function() {
             $('.selected', game_board).removeClass('selected invalid-set');
             selected = [];
-            setTimeout(function() { update_status(''); }, 500);
           }, interaction_delay(800));
         }
       }
@@ -633,7 +664,7 @@ var Savitr = function(game_board, options) {
       selected.splice(selected.indexOf(card_number), 1);
 
       // update UI
-      $(this).parent('td').toggleClass('selected');
+      $(this).closest('.set-cell').toggleClass('selected');
       update_status("");
     }
   }
@@ -749,11 +780,11 @@ var Savitr = function(game_board, options) {
       $('.controls .hint', game_board).prop('disabled', true);
       
       // Add highlight effect
-      card_element.parent('td').addClass('hint-highlight');
+      card_element.closest('.set-cell').addClass('hint-highlight');
       
       // Remove highlight after 3 seconds and re-enable hint button
       setTimeout(function() {
-        card_element.parent('td').removeClass('hint-highlight');
+        card_element.closest('.set-cell').removeClass('hint-highlight');
         $('.controls .hint', game_board).prop('disabled', false);
       }, 3000);
     }

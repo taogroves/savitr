@@ -42,6 +42,8 @@ var Savitr = function(game_board, options) {
   var initial_sets = [];
   var game_status = "-";
   var display_seed = null; // in single mode, original seed (ISO date YYYY-MM-DD) for display and share
+  var status_clear_timer = null;
+  var status_fade_timer = null;
 
   function interaction_delay(milliseconds) {
     return window.matchMedia('(hover: none), (pointer: coarse), (max-width: 768px)').matches ? 0 : milliseconds;
@@ -56,6 +58,7 @@ var Savitr = function(game_board, options) {
   function begin_click() {
     $('.begin-screen', game_board).hide();
     $('.game-area', game_board).show();
+    $('.daily-main', game_board).addClass('game-active');
     total_seconds = 0;
     if (!timer_var) {
       timer_var = setInterval(timer, 1000);
@@ -63,6 +66,7 @@ var Savitr = function(game_board, options) {
   }
 
   function start() {
+    $('.daily-main', game_board).removeClass('game-active');
     selected = [];  // clear selected so the reset button can call this method
     found_sets = [];
     incorrect_guesses = 0; // reset incorrect guesses counter
@@ -107,6 +111,7 @@ var Savitr = function(game_board, options) {
     if (initial_sets.length == 0) {
       $('.begin-screen', game_board).hide();
       $('.game-area', game_board).show();
+      $('.daily-main', game_board).addClass('game-active');
       $('.goal',game_board).html("No sets found for this deal. Enjoy today's break. See you tomorrow!");
     } else {
       $('.begin-screen', game_board).show();
@@ -128,41 +133,39 @@ var Savitr = function(game_board, options) {
       $('.control.begin-button', game_board).off('click').click(begin_click);
     }
 
-    // Set the title based, including seed/date (formatted for display)
-    $('.title',game_board).html('Savitr' + (display_seed ? '<br/>' + format_display_date(display_seed) : ''));
+    update_mode_header();
+  }
+
+  function update_mode_header() {
+    $('.title', game_board).text('Daily');
+    $('.mode-seed', game_board).text(display_seed ? format_display_date(display_seed) : '');
   }
 
   function draw_board(rows,columns) {
-    var board = $('<div/>').addClass('main');
+    var board = $('<div/>').addClass('main daily-main');
 
     var begin_screen = $('<div class="begin-screen"></div>');
     begin_screen.append($('<button class="control begin-button">Begin</button>'));
     board.append(begin_screen);
 
+    var header = $('<div class="mode-header"></div>');
+    header.append($('<div><h2 class="title">Daily</h2><p class="mode-seed"></p></div>'));
+    header.append($('<div class="mode-controls controls">'+
+                        '<span class="timer">00:00</span>'+
+                        '<button class="control hint" style="display:none;">HINT</button>'+
+                        '<button class="control finish">FINISH</button>'+
+                      '</div>'));
+    board.append(header);
+
     var game_area = $('<div class="game-area" style="display:none;"></div>');
-    var table = $('<table/>').addClass('board');
 
-    table.append($('<tr class="header">'+
-                      '<th class="title" align="left"></th>' +
-                      '<th class="message" align="center" colspan="'+(columns-2)+'"></th>' +
-                      '<th class="controls" align="right">'+
-                          '<span class="timer">00:00</span>'+
-                          '<button class="control hint" style="display:none;">HINT</button>'+
-                          '<button class="control finish">FINISH</button>'+
-                         // '<button class="control reset">reset</button>'+
-                      '</th>' +
-                    '</tr>'));
-    $('.controls .reset',table).click(start);
-
-    for (var r=0; r < rows; r++) {
-      var row = $('<tr/>');
-      for (var c=0; c < columns; c++) {
-        row.append($('<td/>').addClass('board-' + ((r*columns)+c+1)));
-      }
-      table.append(row);
+    var set_board = $('<div class="set-board" role="grid" aria-label="Daily puzzle"></div>');
+    for (var i = 0; i < rows * columns; i++) {
+      set_board.append($('<div class="set-cell board-' + (i + 1) + '" role="gridcell"></div>'));
     }
+    game_area.append(set_board);
 
-    game_area.append(table);
+    game_area.append($('<div class="mode-footer"><span class="message"></span></div>'));
     game_area.append($('<div><span class="goal"/>&nbsp;<span class="game_status"/></div><div class="found_sets"><h4>🎉 Sets Found:</h4></div>'));
     board.append(game_area);
 
@@ -193,10 +196,29 @@ var Savitr = function(game_board, options) {
     return deck;
   }
 
-  function update_status(messages) {
+  function update_status(messages, auto_clear_after) {
     // could pass in a "string" or ["array","of","strings"]
     messages = [].concat(messages);
-    $('.message',game_board).html(messages.join(' '));
+    var el = $('.mode-footer .message', game_board);
+    if (status_clear_timer) {
+      clearTimeout(status_clear_timer);
+      status_clear_timer = null;
+    }
+    if (status_fade_timer) {
+      clearTimeout(status_fade_timer);
+      status_fade_timer = null;
+    }
+    el.removeClass('message-fading');
+    var text = messages.join(' ');
+    el.html(text);
+    if (auto_clear_after && text) {
+      status_clear_timer = setTimeout(function() {
+        el.addClass('message-fading');
+        status_fade_timer = setTimeout(function() {
+          el.html('').removeClass('message-fading');
+        }, 300);
+      }, auto_clear_after);
+    }
 
     // Used to display number of sets left in status bar
     // How many sets are there laid out?
@@ -248,7 +270,7 @@ var Savitr = function(game_board, options) {
       // not already selected, add it if there's not already 3 selected
       if (selected.length < 3) {
         selected.push(card_number);
-        $(this).parent('td').toggleClass('selected');
+        $(this).closest('.set-cell').toggleClass('selected');
       }
 
       if (selected.length == 3) {
@@ -306,7 +328,7 @@ var Savitr = function(game_board, options) {
             finish_click();
           }
 
-          update_status(messages);
+          update_status(messages, 1500);
           console.log(messages, selected_cards);
         } else {
           // three cards selected, but not a set, let's log why:
@@ -330,7 +352,7 @@ var Savitr = function(game_board, options) {
               if (value > 0) diff_attrs.push(key);
             }
           }
-          update_status("Not a set: " + diff_attrs.join(','))
+          update_status("Not a set: " + diff_attrs.join(','), interaction_delay(800) + 500);
           
           // Add shake animation for invalid set and clear selection
           $('.selected', game_board).addClass('invalid-set');
@@ -345,7 +367,7 @@ var Savitr = function(game_board, options) {
       selected.splice(selected.indexOf(card_number), 1);
 
       // update UI
-      $(this).parent('td').toggleClass('selected');
+      $(this).closest('.set-cell').toggleClass('selected');
       update_status("");
     }
   }
@@ -388,7 +410,7 @@ var Savitr = function(game_board, options) {
         if (!found_sets.includes(set_id)) {
           card_numbers = set_id.split('-');
           
-          cloned = $('.board #card-'+card_numbers[0]+',.board #card-'+card_numbers[1]+',.board #card-'+card_numbers[2], game_board).clone();
+          cloned = $('.set-board #card-'+card_numbers[0]+',.set-board #card-'+card_numbers[1]+',.set-board #card-'+card_numbers[2], game_board).clone();
           var setContainer = $('<div class="found-set-item"/>');
           setContainer.append(cloned);
           $('.found_sets', game_board).append(setContainer);
@@ -437,11 +459,11 @@ var Savitr = function(game_board, options) {
       $('.controls .hint', game_board).prop('disabled', true);
       
       // Add highlight effect
-      card_element.parent('td').addClass('hint-highlight');
+      card_element.closest('.set-cell').addClass('hint-highlight');
       
       // Remove highlight after 3 seconds and re-enable hint button
       setTimeout(function() {
-        card_element.parent('td').removeClass('hint-highlight');
+        card_element.closest('.set-cell').removeClass('hint-highlight');
         $('.controls .hint', game_board).prop('disabled', false);
       }, 3000);
     }
