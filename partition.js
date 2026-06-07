@@ -9,6 +9,8 @@ var PartitionSavitr = function(game_board, options) {
   var colors = ['red', 'green', 'purple'];
   var shadings = ['empty', 'striped', 'solid'];
   var shapes = ['oval', 'squiggle', 'diamond'];
+  var board_size = 18;
+  var partition_candidates = 20;
   var group_classes = [
     'partition-set-1',
     'partition-set-2',
@@ -217,6 +219,28 @@ var PartitionSavitr = function(game_board, options) {
   }
 
   function generate_partition() {
+    var best_partition = null;
+    var best_score = null;
+
+    for (var candidate = 0; candidate < partition_candidates; candidate++) {
+      var partition = generate_partition_candidate();
+      var score = score_partition(partition);
+
+      if (!best_score ||
+          score.traps > best_score.traps ||
+          (score.traps === best_score.traps && score.viable_sets < best_score.viable_sets) ||
+          (score.traps === best_score.traps &&
+           score.viable_sets === best_score.viable_sets &&
+           score.total_sets > best_score.total_sets)) {
+        best_partition = partition;
+        best_score = score;
+      }
+    }
+
+    return best_partition;
+  }
+
+  function generate_partition_candidate() {
     var attempts = 0;
 
     while (attempts < 1000) {
@@ -226,7 +250,7 @@ var PartitionSavitr = function(game_board, options) {
 
       shuffle_array(available, rng);
 
-      while (partition.length < 18 && available.length >= 3) {
+      while (partition.length < board_size && available.length >= 3) {
         var first = available.shift();
         var second_index = Math.floor(rng() * available.length);
         var second = available.splice(second_index, 1)[0];
@@ -240,13 +264,89 @@ var PartitionSavitr = function(game_board, options) {
         partition.push(first, second, available.splice(third_index, 1)[0]);
       }
 
-      if (partition.length === 18) {
+      if (partition.length === board_size) {
         shuffle_array(partition, rng);
         return partition;
       }
     }
 
     throw new Error('Unable to generate a partition puzzle.');
+  }
+
+  function score_partition(partition) {
+    var sets = sets_in_partition(partition);
+    var sets_by_position = [];
+    var full_mask = Math.pow(2, board_size) - 1;
+    var completion_cache = {};
+
+    for (var position = 0; position < board_size; position++) {
+      sets_by_position[position] = [];
+    }
+
+    sets.forEach(function(set, set_index) {
+      set.positions.forEach(function(position) {
+        sets_by_position[position].push(set_index);
+      });
+    });
+
+    function can_complete(used_mask) {
+      if (used_mask === full_mask) return true;
+      if (Object.prototype.hasOwnProperty.call(completion_cache, used_mask)) {
+        return completion_cache[used_mask];
+      }
+
+      var first_unused = 0;
+      while ((used_mask & Math.pow(2, first_unused)) !== 0) {
+        first_unused++;
+      }
+
+      var candidate_sets = sets_by_position[first_unused];
+      for (var i = 0; i < candidate_sets.length; i++) {
+        var set_mask = sets[candidate_sets[i]].mask;
+        if ((set_mask & used_mask) === 0 && can_complete(used_mask | set_mask)) {
+          completion_cache[used_mask] = true;
+          return true;
+        }
+      }
+
+      completion_cache[used_mask] = false;
+      return false;
+    }
+
+    var traps = 0;
+    var viable_sets = 0;
+    sets.forEach(function(set) {
+      if (can_complete(set.mask)) {
+        viable_sets++;
+      } else {
+        traps++;
+      }
+    });
+
+    return {
+      traps: traps,
+      viable_sets: viable_sets,
+      total_sets: sets.length
+    };
+  }
+
+  function sets_in_partition(partition) {
+    var sets = [];
+
+    for (var i = 0; i < partition.length; i++) {
+      for (var j = i + 1; j < partition.length; j++) {
+        for (var k = j + 1; k < partition.length; k++) {
+          if (is_set([partition[i], partition[j], partition[k]])) {
+            sets.push({
+              positions: [i, j, k],
+              mask: Math.pow(2, i) | Math.pow(2, j) | Math.pow(2, k)
+            });
+          }
+        }
+      }
+    }
+
+    return sets;
   }
 
   function completing_card(first, second) {
