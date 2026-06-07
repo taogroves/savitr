@@ -756,11 +756,12 @@ body {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px;
     padding: 5px;
-    width: min(100%, 258px);
+    width: min(100%, 500px);
     margin: 0 auto;
   }
 
   .partition-cell {
+    aspect-ratio: 1.5 / 1;
     border-width: 3px;
     border-radius: 8px;
   }

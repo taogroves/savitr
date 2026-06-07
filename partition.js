@@ -87,9 +87,7 @@ var PartitionSavitr = function(game_board, options) {
     if (group_id !== undefined) {
       $('.partition-board', game_board).removeClass('partition-complete');
       break_group(group_id);
-      selected = [position];
-      update_selection();
-      update_status('Set opened. Choose two cards to rebuild it.');
+      add_to_draft(position);
       return;
     }
 
@@ -101,10 +99,11 @@ var PartitionSavitr = function(game_board, options) {
       return;
     }
 
-    if (selected.length === 3) {
-      selected = [];
-    }
+    add_to_draft(position);
+  }
 
+  function add_to_draft(position) {
+    if (selected.length === 3) selected = [];
     selected.push(position);
     update_selection();
 
