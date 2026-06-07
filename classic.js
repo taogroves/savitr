@@ -15,6 +15,7 @@ var Savitr = function(game_board, options) {
   var shadings = ['empty', 'striped',  'solid'];
   var shapes   = ['oval',  'squiggle', 'diamond'];
   var deck_size = numbers.length * colors.length * shadings.length * shapes.length;
+  var total_sets = deck_size / 3; // 81 cards → 27 sets
 
   var deck = new_deck(settings['shuffle']);
 
@@ -336,8 +337,8 @@ var Savitr = function(game_board, options) {
   }
 
   function update_deals_title() {
-    var deals_left = Math.floor(available_deck_indices.length / 3);
-    $('.title', game_board).html('Deals Left: ' + deals_left);
+    var sets_left = total_sets - found_sets;
+    $('.title', game_board).html('Sets Left: ' + sets_left);
   }
 
   function update_player_buttons() {
@@ -360,6 +361,10 @@ var Savitr = function(game_board, options) {
   }
 
   function check_end_game() {
+    if (found_sets >= total_sets) {
+      end_game();
+      return;
+    }
     var board_cards = get_board_cards();
     var no_sets_left = sets_in(board_cards).length === 0;
     var deck_empty = available_deck_indices.length === 0;
@@ -392,7 +397,6 @@ var Savitr = function(game_board, options) {
     if (available_deck_indices.length < 3) return;
     add_three_cards();
     no_sets_mode = true;
-    update_deals_title();
     update_no_sets_button();
   }
 
