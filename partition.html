@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Savitr - Partition</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="instructions-toggle.js"></script>
+    <script src="jquery-3.3.1.min.js"></script>
+    <script src="savitr.js"></script>
+    <script src="partition.js"></script>
+    <script>
+      $.urlParam = function(name) {
+        var results = new RegExp('[?&]' + name + '=([^&#]*)').exec(window.location.search);
+        return results !== null ? decodeURIComponent(results[1] || '') : false;
+      };
+
+      $(function() {
+        var game_seed = $.urlParam('game_seed') || new Date().toISOString().slice(0, 10);
+        var game = new PartitionSavitr($('#my_game'), {shuffle: game_seed});
+        game.start();
+      });
+    </script>
+  </head>
+  <body>
+    <div class="container partition-page">
+      <div class="header">
+        <h1>Savitr</h1>
+        <p><a href="index.html">&larr; Home</a></p>
+      </div>
+
+      <div class="instructions-wrapper">
+        <div class="instructions-header">
+          <h3>How to Play Partition</h3>
+          <button type="button" class="instructions-toggle" aria-expanded="true">Hide instructions</button>
+        </div>
+        <div class="instructions">
+          <p>Divide all 18 cards into six non-overlapping sets. Every card must belong to exactly one set.</p>
+          <p>Completed sets stay highlighted in unique colors. Click any card in a completed set to break that set and use the clicked card as the start of your next selection.</p>
+        </div>
+      </div>
+
+      <div class="game-container game-container--full-width game-container--partition">
+        <div id="my_game"></div>
+      </div>
+
+      <div class="footer">
+        <p><a href="https://github.com/erikhatcher/savitr" target="_blank">View on GitHub</a></p>
+      </div>
+    </div>
+  </body>
+</html>
