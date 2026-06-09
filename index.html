@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <div class="welcome-overlay" aria-hidden="true">
+      <div class="welcome-card" role="status" aria-live="polite">
+        <p class="welcome-message"></p>
+      </div>
+    </div>
+
     <div class="container">
       <div class="header">
         <h1>Savitr</h1>
@@ -95,6 +101,158 @@
         line-height: 1.5;
         font-size: 0.95rem;
       }
+      .welcome-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: none;
+        place-items: center;
+        padding: 24px;
+        background: rgba(45, 55, 72, 0.28);
+        backdrop-filter: blur(5px);
+        pointer-events: none;
+      }
+      .welcome-overlay.is-visible {
+        display: grid;
+        animation: welcome-overlay 1s ease both;
+      }
+      .welcome-card {
+        width: min(calc(100vw - 32px), 720px);
+        padding: clamp(24px, 7vw, 56px) clamp(16px, 6vw, 48px);
+        overflow: hidden;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.96);
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        border-radius: 24px;
+        box-shadow: 0 24px 70px rgba(45, 55, 72, 0.3);
+        animation: welcome-card 1s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      }
+      .welcome-message {
+        margin: 0;
+        font-size: clamp(1.65rem, 7vw, 4.25rem);
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: -0.04em;
+      }
+      .welcome-word {
+        display: inline-block;
+        white-space: nowrap;
+      }
+      .welcome-letter {
+        display: inline-block;
+        color: #667eea;
+        opacity: 0;
+        transform: translateY(0.45em) rotate(5deg) scale(0.75);
+        animation: welcome-letter 0.18s ease forwards;
+        animation-delay: calc(0.1s + var(--letter-index) * 0.012s);
+      }
+      .welcome-space {
+        display: inline-block;
+        width: 0.28em;
+      }
+      @keyframes welcome-overlay {
+        0%, 100% { opacity: 0; }
+        12%, 82% { opacity: 1; }
+      }
+      @keyframes welcome-card {
+        0% { opacity: 0; transform: scale(0.55) translateY(40px) rotate(-3deg); }
+        14% { opacity: 1; transform: scale(1.04) translateY(0) rotate(0); }
+        22%, 80% { opacity: 1; transform: scale(1) translateY(0) rotate(0); }
+        100% { opacity: 0; transform: scale(0.7) translateY(-35px) rotate(2deg); }
+      }
+      @keyframes welcome-letter {
+        to { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .welcome-overlay.is-visible {
+          animation: welcome-overlay-reduced 1s ease both;
+        }
+        .welcome-card,
+        .welcome-letter {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+        @keyframes welcome-overlay-reduced {
+          0%, 100% { opacity: 0; }
+          10%, 80% { opacity: 1; }
+        }
+      }
     </style>
+    <script>
+      (() => {
+        const gameModes = new Set([
+          "single.html",
+          "challenge.html",
+          "partition.html",
+          "classic.html"
+        ]);
+        const navigation = performance.getEntriesByType("navigation")[0];
+        const referrerPath = document.referrer
+          ? new URL(document.referrer).pathname
+          : "";
+        const referrerPage = referrerPath.split("/").pop();
+        const cameFromGame = gameModes.has(referrerPage);
+        const cameFromHistory = navigation && navigation.type === "back_forward";
+
+        if (cameFromGame || cameFromHistory) {
+          return;
+        }
+
+        const hour = new Date().getHours();
+        let greeting = "Good evening";
+
+        if (hour < 5) {
+          greeting = "Good night";
+        } else if (hour < 12) {
+          greeting = "Good morning";
+        } else if (hour < 17) {
+          greeting = "Good afternoon";
+        } else if (hour < 22) {
+          greeting = "Good evening";
+        } else {
+          greeting = "Good night";
+        }
+        greeting += " Mary!";
+
+        const overlay = document.querySelector(".welcome-overlay");
+        const message = document.querySelector(".welcome-message");
+
+        let letterIndex = 0;
+        greeting.split(" ").forEach((word, wordIndex) => {
+          if (wordIndex > 0) {
+            const space = document.createElement("span");
+            space.className = "welcome-space";
+            space.setAttribute("aria-hidden", "true");
+            message.appendChild(space);
+          }
+
+          const wordElement = document.createElement("span");
+          wordElement.className = "welcome-word";
+          [...word].forEach((character) => {
+            const letter = document.createElement("span");
+            letter.className = "welcome-letter";
+            letter.style.setProperty("--letter-index", letterIndex);
+            letter.textContent = character;
+            wordElement.appendChild(letter);
+            letterIndex += 1;
+          });
+          message.appendChild(wordElement);
+        });
+
+        overlay.setAttribute("aria-hidden", "false");
+        overlay.classList.add("is-visible");
+        const removeWelcome = () => overlay.remove();
+        overlay.addEventListener("animationend", (event) => {
+          if (event.target === overlay) {
+            removeWelcome();
+          }
+        });
+        window.setTimeout(
+          removeWelcome,
+          1100
+        );
+      })();
+    </script>
   </body>
 </html>
