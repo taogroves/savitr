@@ -27,6 +27,9 @@ var PartitionSavitr = function(game_board, options) {
   var card_groups = {};
   var next_group_id = 0;
   var rng = Math.random;
+  var page_loaded_at = window.performance && window.performance.timeOrigin ?
+    window.performance.timeOrigin :
+    Date.now();
 
   function interaction_delay(milliseconds) {
     return window.matchMedia('(hover: none), (pointer: coarse), (max-width: 768px)').matches ? 0 : milliseconds;
@@ -148,7 +151,10 @@ var PartitionSavitr = function(game_board, options) {
     update_progress();
 
     if (active_group_count() === 6) {
-      update_status('Solved! All 18 cards are partitioned into six sets.');
+      update_status(
+        'Solved! All 18 cards are partitioned into six sets. Time: ' +
+        format_elapsed_time(Date.now() - page_loaded_at)
+      );
       $('.partition-board', game_board).addClass('partition-complete');
     } else {
       update_status('Set made. ' + (6 - active_group_count()) + ' to go.');
@@ -196,6 +202,13 @@ var PartitionSavitr = function(game_board, options) {
   function update_progress() {
     var count = active_group_count();
     $('.partition-progress', game_board).text(count + ' / 6 sets');
+  }
+
+  function format_elapsed_time(milliseconds) {
+    var total_seconds = Math.floor(milliseconds / 1000);
+    var minutes = Math.floor(total_seconds / 60);
+    var seconds = total_seconds % 60;
+    return (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
   }
 
   function active_group_count() {

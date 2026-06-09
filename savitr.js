@@ -373,14 +373,14 @@ var Savitr = function(game_board, options) {
   }
 
   function update_game_status() {
-    green_circle = String.fromCodePoint(0x1F7E2); // "🟢"
     red_circle = String.fromCodePoint(0x1F534);  // "🔴"
 
     result = '';
     for (var i = 0; i < initial_sets.length; i++) {
       var set_id = initial_sets[i].set_id;
-      if (found_sets.includes(set_id)) {
-        result += green_circle;
+      var found_index = found_sets.indexOf(set_id);
+      if (found_index != -1) {
+        result += keycap_number(found_index + 1);
       } else {
         result += red_circle;
       }
@@ -390,6 +390,12 @@ var Savitr = function(game_board, options) {
     
     console.log(game_status);
     $('.game_status',game_board).html(game_status);
+  }
+
+  function keycap_number(number) {
+    return String(number).split('').map(function(digit) {
+      return digit + '\uFE0F\u20E3';
+    }).join('');
   }
 
   function finish_click() {
